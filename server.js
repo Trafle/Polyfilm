@@ -1,56 +1,29 @@
 'use strict';
 
+const staticServer = require('node-static'); // static file server for client
+const config = require('./configs');
+const app = require('http').createServer(handler);
+const io = require('socket.io')(app);
 const fs = require('fs');
-const http = require('http');
-const path = 'adAstra.mp4';
+const ss = require('socket.io-stream');
 
-const requestListener = (req, res) => {
-  res.writeHead(200);
-  if (req.method === 'GET' && req.url === '/video') {
-    const stat = fs.statSync(path);
-    const total = stat.size;
+const fileServer = new (staticServer.Server)('./front');
 
-    if (req.headers.range) {
+app.listen(config.port, config.host);
 
-      // meaning client (browser) has moved the forward/back slider
-      // which has sent this request back to this server logic ... cool
+function handler(req, res) {
+  fileServer.serve(req, res);
+}
 
-      const range = req.headers.range;
-      const parts = range.replace(/bytes=/, '').split('-');
-      const partialstart = parts[0];
-      const partialend = parts[1];
+io.on('connection', socket => {
+  console.log('client connection...');
 
-      const start = parseInt(partialstart, 10);
-      const end = partialend ? parseInt(partialend, 10) : total - 1;
-      const chunksize = (end - start) + 1;
-      console.log('RANGE: ' + start + ' - ' + end + ' = ' + chunksize);
+  socket.on('play', () => {
+    const stream = ss.createStream();
+    ss(socket).emit('videoStream', stream);
+    fs.createReadStream('./front/index.html', {
+      encoding: 'base64'
+    }).pipe(stream);
+  });
+});
 
-      const file = fs.createReadStream(path, { start, end });
-      res.writeHead(206, {
-        'Content-Range': 'bytes ' + start + '-' + end + '/' + total,
-        'Accept-Ranges': 'bytes', 'Content-Length': chunksize,
-        'Content-Type': 'video/mp4'
-      });
-      file.pipe(res);
-
-    } else {
-
-      console.log('ALL: ' + total);
-      res.writeHead(200, {
-        'Content-Length': total,
-        'Content-Type': 'video/mp4'
-      });
-      fs.createReadStream(path).pipe(res);
-    }
-
-  } else {
-    console.log('there');
-    res.end('Hello, World!');
-  }
-};
-
-const host = '77.47.218.54';
-const port = 9000;
-
-const server = http.createServer(requestListener);
-server.listen(port, host);
