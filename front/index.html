@@ -1,16 +1,27 @@
 <html>
 
+<head>
+  <title>Cool cinema</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+
 <body>
   <h1 style="text-align:center;" id="text">
     Pretty video streaming service
   </h1>
   <br />
-  <video style="margin: auto;" id="video" controls width="1080">
-    <source type='video/mp4' ; codecs="H.264" />
-  </video>
-  <script src="socket.io/socket.io.js"></script>
-  <script src="socket.io-stream.js"></script>
-  <script src="client.js"></script>
+  <div>
+    <video id="video" controls width="1080">
+      <source type='video/mp4' ; codecs="H.264" />
+    </video>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <!-- <script src="socket.io/socket.io.js"></script>
+    <script src="socket.io-stream.js"></script> -->
+    <script src="client.js"></script>
+  </div>
+  <div>
+    <button onclick="connectToRoom()" type="button">Click Me!</button>
+  </div>
 </body>
 
 </html>

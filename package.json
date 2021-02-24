@@ -1,0 +1,40 @@
+{
+  "name": "polyfilm",
+  "version": "1.0.0",
+  "description": "streaming service for me and friends",
+  "main": "server.js",
+  "scripts": {
+    "test": "nodemon server.js",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Trafle/Polyfilm.git"
+  },
+  "keywords": [
+    "streaming",
+    "video",
+    "service"
+  ],
+  "author": "Trafle",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Trafle/Polyfilm/issues"
+  },
+  "homepage": "https://github.com/Trafle/Polyfilm#readme",
+  "devDependencies": {
+    "eslint": "^7.20.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1",
+    "eslint-plugin-react": "^7.22.0"
+  },
+  "dependencies": {
+    "fluent-ffmpeg": "^2.1.2",
+    "node-static": "^0.7.11",
+    "socket.io": "^3.1.1",
+    "socket.io-client": "^3.1.1",
+    "socket.io-stream": "^0.9.1"
+  }
+}

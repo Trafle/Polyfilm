@@ -1,29 +1,18 @@
 'use strict';
 
-const staticServer = require('node-static'); // static file server for client
 const config = require('./configs');
-const app = require('http').createServer(handler);
-const io = require('socket.io')(app);
-const fs = require('fs');
-const ss = require('socket.io-stream');
+const logic = require('./back/logic');
+const server = require('http').createServer(handler);
+const WebSocket = require('ws');
+const wsServer = new WebSocket.Server({ server });
 
-const fileServer = new (staticServer.Server)('./front');
+wsServer.on('connection', logic.connectionHandler, wsServer);
+wsServer.on('close', logic.closeHandler);
 
-app.listen(config.port, config.host);
+server.listen(config.port, config.host);
 
 function handler(req, res) {
-  fileServer.serve(req, res);
+  const nodeStatic = require('node-static');
+  const fileSerer = new nodeStatic.Server('./front');
+  fileSerer.serve(req, res);
 }
-
-io.on('connection', socket => {
-  console.log('client connection...');
-
-  socket.on('play', () => {
-    const stream = ss.createStream();
-    ss(socket).emit('videoStream', stream);
-    fs.createReadStream('./front/index.html', {
-      encoding: 'base64'
-    }).pipe(stream);
-  });
-});
-

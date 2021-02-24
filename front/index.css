@@ -1,0 +1,13 @@
+#video {
+  margin: auto;
+}
+
+body {
+  background: #1d2127;
+  color: white
+}
+
+button {
+  width: 180;
+  height: 90;
+}
