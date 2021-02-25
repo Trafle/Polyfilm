@@ -1,18 +1,15 @@
 'use strict';
 
 const socket = new WebSocket('ws://localhost:9000');
-const localPC = new RTCPeerConnection();
 const room = 'default';
 const video = document.getElementById('video');
+const peers = new Room('userName', 'connections');
 var videoStream;
-
-
-// const peerConnections = new Array();
 const userName = Math.random().toString(36).substring(7);
 
 socket.onopen = e => {
-  console.log('connection open');
-  send({ type: 'userName', userName, room });
+  console.log('Server connection open');
+  send({ type: 'connection', userName, room });
 };
 
 socket.onmessage = event => {
@@ -21,12 +18,20 @@ socket.onmessage = event => {
 
     case 'sdp':
       console.log(data);
-      localPC.setRemoteDescription(new RTCSessionDescription(data.sdp));
       if (data.sdp.type === 'offer') {
+        // Set the received ICE description
+        const localPC = new RTCPeerConnection();
+        localPC.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        // Formulate answer and send it back to the sender
         localPC.createAnswer().then(desc => {
           localPC.setLocalDescription(desc);
-          send({ type: 'sdp', sdp: desc });
+          localPC.userName = data.sender;
+          peers.addParticipant(localPC);
+          send({ type: 'sdp', receiver: data.sender, sdp: desc });
         });
+      } else if (data.sdp.type === 'answer') {
+        const localPC = peers.getParticipant(data.sender);
+
       }
       break;
 
@@ -81,7 +86,12 @@ function startVideoStream() {
 
 function getLocalMediaStream(stream) {
   videoStream = stream;
-  localPC.addStream(videoStream);
+  // localPC.addStream(videoStream);
+  stream.getTracks().forEach(track => {
+    console.dir('track');
+    console.dir(track);
+    localPC.addTrack(track, stream);
+  });
   video.srcObject = stream;
   video.play();
 }
@@ -89,7 +99,6 @@ function getLocalMediaStream(stream) {
 function catchGetMediaStreamError(e) {
   console.log('error with getDisplayMedia: ', e);
 }
-
 
 // function onCandidate(candidate) {
 //   localPC.addIceCandidate(new RTCIceCandidate(candidate));
@@ -100,87 +109,6 @@ function parse(obj) {
 }
 
 function send(msg) {
+  msg.sender = userName;
   socket.send(JSON.stringify(msg));
 }
-
-
-
-
-
-
-
-// function handleConnection(event) {
-//   const peerConnection = event.target;
-//   const iceCandidate = event.candidate;
-
-//   if (iceCandidate) {
-//     const newIceCandidate = new RTCIceCandidate(iceCandidate);
-//     const otherPeer = getOtherPeer(peerConnection);
-
-//     otherPeer.addIceCandidate(newIceCandidate)
-//       .then()
-//       .catch();
-//   }
-// }
-
-// localPC.addEventListener('iceconnectionstatechange');
-
-
-// localPC.createOffer();
-
-
-
-// function handleConnection(event) {
-//   console.log('incoming connection');
-//   console.dir(event.target);
-//   console.dir(event.candidate);
-// }
-
-// function handleConnectionSuccess(peerConnection) {
-//   console.log(`${getPeerName(peerConnection)} addIceCandidate success.`);
-// };
-
-// // Logs that the connection failed.
-// function handleConnectionFailure(peerConnection, error) {
-//   console.log(`${getPeerName(peerConnection)} failed` +
-// ` to add ICE Candidate:\n` +
-//     `${error.toString()}.`);
-// }
-
-// function handleConnection(event) {
-//   const peerConnection = event.target;
-//   const iceCandidate = event.candidate;
-
-//   if (iceCandidate) {
-//     const newIceCandidate = new RTCIceCandidate(iceCandidate);
-//     const otherPeer = getOtherPeer(peerConnection);
-
-//     otherPeer.addIceCandidate(newIceCandidate)
-//       .then(() => {
-//         handleConnectionSuccess(peerConnection);
-//       }).catch(error => {
-//         handleConnectionFailure(peerConnection, error);
-//       });
-
-//     console.log(`${getPeerName(peerConnection)} ICE candidate:\n` +
-//       `${event.candidate.candidate}.`);
-//   }
-// }
-
-// function getOtherPeer(peerConnection) {
-//   return (peerConnection === localPC) ?
-//     remotePeerConnection : localPC;
-// }
-
-// // Logs changes to the connection state.
-// function handleConnectionChange(event) {
-//   const peerConnection = event.target;
-//   console.log('ICE state change event: ', event);
-//   console.log(`${getPeerName(peerConnection)} ICE state: ` +
-//     `${peerConnection.iceConnectionState}.`);
-// }
-
-// function getPeerName(peerConnection) {
-//   return (peerConnection === localPC) ?
-//     'localPC' : 'remotePeerConnection';
-// }

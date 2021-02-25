@@ -6,7 +6,7 @@ const server = require('http').createServer(handler);
 const WebSocket = require('ws');
 const wsServer = new WebSocket.Server({ server });
 
-wsServer.on('connection', logic.connectionHandler, wsServer);
+wsServer.on('connection', logic.connectionHandler);
 wsServer.on('close', logic.closeHandler);
 
 server.listen(config.port, config.host);

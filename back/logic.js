@@ -1,62 +1,41 @@
 'use strict';
 
-const socketConnections = new Array();
+const House = require('../front/House');
+const sockets = new House('userName');
 
-const connectionHandler = (ws, wsServer) => { // wsServer for broadcasting
-  // console.dir(wsServer);
-  ws.deleteFromConnections = deleteFromConnections;
+const connectionHandler = ws => {
+
   ws.on('message', message => {
     message = parse(message);
     switch (message.type) {
 
-      case 'userName':
-
-        if (getConnectionByName(message.userName)) {
-          console.log('Connection with this name already exists: '
-            , message.userName);
-          break;
-        }
-        ws.userName = message.userName;
-        ws.room = message.room;
-        socketConnections.push(ws);
-        console.log('New connection saved with the name:', ws.userName,
-          '\nconnections total:', socketConnections.length);
-        break;
-
-      case 'sdp':
-        broadcastExcept(ws.userName, message);
-        break;
+      case 'connection': socketConnectionHandler(ws, message); break;
+      case 'sdp': broadcastInRoomExcept(ws.userName, message); break;
 
       default: console.log(message);
     }
   });
 
-  ws.on('close', () => ws.deleteFromConnections());
-
+  ws.on('close', () => sockets.deleteParticipant(ws.userName));
 };
 
-function broadcastExcept(name, obj) {
-  for (let i = 0; i < socketConnections.length; i++) {
-    if (socketConnections[i].userName !== name) {
-      send(obj, socketConnections[i]);
-    }
+function socketConnectionHandler(ws, message) {
+  // Check if there is such a connection already
+  if (sockets.checkIfPresent(ws.userName)) {
+    console.log('connection with this name already present');
+    return;
   }
+  ws.userName = message.userName;
+  sockets.addParticipant(ws, message.room);
+  console.log('New connection saved with the name:', ws.userName);
 }
 
-function getConnectionByName(name) {
-  for (let i = 0; i < socketConnections.length; i++) {
-    if (socketConnections[i].userName === name) return socketConnections[i];
+function broadcastInRoomExcept(name, obj) {
+  try {
+    sockets.getAllInRoomExcept(name).forEach(c => { send(obj, c); });
+  } catch (e) {
+    console.error('error while trying to broadcast a message in a room\n', e);
   }
-  return null;
-}
-
-function deleteFromConnections() {
-  socketConnections.forEach((c, i) => {
-    if (c.userName === this.userName) {
-      socketConnections.splice(i, 1);
-      console.log('Connection deleted:', this.userName);
-    }
-  });
 }
 
 const closeHandler = () => console.log('some connection closed');
