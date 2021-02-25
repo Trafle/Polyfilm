@@ -9,7 +9,7 @@ const userName = Math.random().toString(36).substring(7);
 
 socket.onopen = e => {
   console.log('Server connection open');
-  send({ type: 'connection', userName, room });
+  send({ type: 'connection', room });
 };
 
 socket.onmessage = event => {
@@ -25,33 +25,41 @@ socket.onmessage = event => {
         // Formulate answer and send it back to the sender
         localPC.createAnswer().then(desc => {
           localPC.setLocalDescription(desc);
-          localPC.userName = data.sender;
+          localPC.userName = data.from;
           peers.addParticipant(localPC);
-          send({ type: 'sdp', receiver: data.sender, sdp: desc });
+          send({ type: 'sdp', to: data.from, sdp: desc });
         });
       } else if (data.sdp.type === 'answer') {
-        const localPC = peers.getParticipant(data.sender);
-
+        const localPC = peers.getParticipant(data.from);
+        const description = new RTCSessionDescription(data.sdp);
+        localPC.setRemoteDescription(description);
       }
+      break;
+
+    case 'new-potential-peer':
+      const localPC = new RTCPeerConnection();
+      localPC.createOffer(desc => localDescCreated(desc, data.peerName)
+        , logError)
+        .then(desc => {
+          localPC.setLocalDescription(desc);
+          localPC.userName = data.peerName;
+          peers.addParticipant(localPC);
+        })
+        .catch(logError);
       break;
 
     case 'iceCandidate':
       localPC.addIceCandidate(new RTCIceCandidate(data.candidate)
         .then().catch());
       break;
+
     default:
   }
 
 };
 
-function connectToRoom(room) {
-  localPC.createOffer(localDescCreated, logError)
-    .then(desc => localPC.setLocalDescription(desc))
-    .catch(logError);
-}
-
-function localDescCreated(description) {
-  send({ type: 'sdp', sdp: description });
+function localDescCreated(description, to) {
+  send({ type: 'sdp', to, sdp: description });
 }
 
 function logError(e) {
@@ -109,6 +117,6 @@ function parse(obj) {
 }
 
 function send(msg) {
-  msg.sender = userName;
+  msg.from = userName;
   socket.send(JSON.stringify(msg));
 }

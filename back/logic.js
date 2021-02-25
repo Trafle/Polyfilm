@@ -10,7 +10,7 @@ const connectionHandler = ws => {
     switch (message.type) {
 
       case 'connection': socketConnectionHandler(ws, message); break;
-      case 'sdp': broadcastInRoomExcept(ws.userName, message); break;
+      case 'sdp': sdpRequestHandler(ws.userName, message); break;
 
       default: console.log(message);
     }
@@ -21,14 +21,45 @@ const connectionHandler = ws => {
 
 function socketConnectionHandler(ws, message) {
   // Check if there is such a connection already
+  ws.userName = message.from;
+  console.log('ws.userName');
+  console.log(ws.userName);
   if (sockets.checkIfPresent(ws.userName)) {
     console.log('connection with this name already present');
     return;
   }
-  ws.userName = message.userName;
   sockets.addParticipant(ws, message.room);
-  console.log('New connection saved with the name:', ws.userName);
+  console.log('New connection saved with the name:', message.from);
+
+  // If there is more than one connection in the room, introduce them
+  const roomIndex = sockets.getRoomIndexByName(message.room);
+  if (sockets.rooms[roomIndex].participantCount() < 2) return;
+  const noPeerParticipants = sockets.rooms[roomIndex]
+    .getAllWithProperty('hasPeerConnection', undefined);
+
+  noPeerParticipants.forEach(p => {
+    const potentialPeers = sockets.getAllInRoomExcept(p.userName);
+    potentialPeers.forEach(pp => {
+      send({ type: 'new-potential-peer', peerName: p.userName }, pp);
+    });
+  });
+
 }
+
+function sdpRequestHandler(wsName, message) {
+  sockets.getParticipantByID(message.from).hasPeerConnection = true;
+  sockets.getParticipantByID(message.to).hasPeerConnection = true;
+  const receiverPeer = sockets.getParticipantByID(message.to);
+  if (receiverPeer) send(message, receiverPeer);
+  // if (message.sdp.type === 'offer') {
+  //   const receiverPeer = sockets.getParticipantByID(message.to);
+  //   if (receiverPeer) send(message, receiverPeer);
+  // } else if (message.sdp.type === 'answer') {
+  //   const receiverPeer = sockets.getParticipantByID(message.to);
+  //   if (receiverPeer) send(message, receiverPeer);
+  // }
+}
+
 
 function broadcastInRoomExcept(name, obj) {
   try {

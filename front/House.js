@@ -10,6 +10,16 @@ class Room {
 
   participantCount() { return this.participants.length; }
 
+  getAllWithProperty(property, value) {
+    const participantsWithProperty = new Array();
+    for (let i = 0; i < this.participantCount(); i++) {
+      if (this.participants[i][property] === value) {
+        participantsWithProperty.push(this.participants[i]);
+      }
+    }
+    return participantsWithProperty;
+  }
+
   addParticipant(participant) {
     this.participants.push(participant);
   }
@@ -59,6 +69,13 @@ class House {
     this.addRoom(defaultRoomName);
   }
 
+  getParticipantByID(id) {
+    for (let i = 0; i < this.getRoomCount(); i++) {
+      const participant = this.rooms[i].getParticipant(id);
+      if (participant) return participant;
+    }
+  }
+
   getRoomCount() { return this.rooms.length; }
 
   addRoom(roomName) {
@@ -93,7 +110,6 @@ class House {
       }
     }
   }
-
 
   getRoomIndexByName(roomName) {
     for (let i = 0; i < this.getRoomCount(); i++) {
