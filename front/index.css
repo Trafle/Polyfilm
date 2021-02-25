@@ -1,5 +1,9 @@
 #video {
   margin: auto;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 75%;
 }
 
 body {
@@ -8,6 +12,17 @@ body {
 }
 
 button {
-  width: 180;
-  height: 90;
+  width: 45%;  
+  height: 45;
+  font: bold;
+  font-size: 23;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.buttonsDiv {
+    margin: auto;
+    width: 30%;
+    padding-top: 10px;
 }

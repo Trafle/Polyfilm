@@ -11,16 +11,17 @@
   </h1>
   <br />
   <div>
-    <video id="video" controls width="1080">
+    <video id="video" controls>
       <source type='video/mp4' ; codecs="H.264" />
     </video>
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-    <!-- <script src="socket.io/socket.io.js"></script>
-    <script src="socket.io-stream.js"></script> -->
     <script src="client.js"></script>
   </div>
   <div>
-    <button onclick="connectToRoom()" type="button">Click Me!</button>
+    <div class="buttonsDiv">
+      <button onclick="connectToRoom()" type="button">Connect</button>
+      <button onclick="startVideoStream()" type="button">Share</button>
+    </div>
   </div>
 </body>
 

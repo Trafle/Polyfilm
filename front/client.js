@@ -1,10 +1,13 @@
 'use strict';
 
 const socket = new WebSocket('ws://localhost:9000');
-const localPeerConnection = new RTCPeerConnection();
+const localPC = new RTCPeerConnection();
 const room = 'default';
+const video = document.getElementById('video');
+var videoStream;
 
-const peerConnections = new Array();
+
+// const peerConnections = new Array();
 const userName = Math.random().toString(36).substring(7);
 
 socket.onopen = e => {
@@ -14,39 +17,82 @@ socket.onopen = e => {
 
 socket.onmessage = event => {
   const data = parse(event.data);
-  console.log('message from server:', data);
-
   switch (data.type) {
 
-    case 'peerAnswer':
-      const remoteDesc = new RTCSessionDescription(data.answer);
-      localPeerConnection.setRemoteDescription(remoteDesc);
-      localPeerConnection.createOffer(offer => {
-        localPeerConnection.setLocalDescription(offer);
-        socket.send({ 'offer': offer });
-      });
+    case 'sdp':
+      console.log(data);
+      localPC.setRemoteDescription(new RTCSessionDescription(data.sdp));
+      if (data.sdp.type === 'offer') {
+        localPC.createAnswer().then(desc => {
+          localPC.setLocalDescription(desc);
+          send({ type: 'sdp', sdp: desc });
+        });
+      }
       break;
 
+    case 'iceCandidate':
+      localPC.addIceCandidate(new RTCIceCandidate(data.candidate)
+        .then().catch());
+      break;
     default:
   }
 
 };
 
+function connectToRoom(room) {
+  localPC.createOffer(localDescCreated, logError)
+    .then(desc => localPC.setLocalDescription(desc))
+    .catch(logError);
+}
+
+function localDescCreated(description) {
+  send({ type: 'sdp', sdp: description });
+}
+
+function logError(e) {
+  console.error(`Bad thing: ${e}`);
+}
+
 socket.onclose = event => {
-  console.log('closed cleanly: ' + event.wasClean);
+  console.log('Closed cleanly: ' + event.wasClean);
 };
 
 socket.onerror = error => {
   console.log(`[error] ${error.message}`);
 };
 
-// function connectToRoom(room) {
-//   send({ type });
-// }
+function startVideoStream() {
+  const videoOptions = {
+    video: {
+      cursor: 'never'
+    },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      sampleRate: 44100
+    }
+  };
+
+  navigator.mediaDevices.getDisplayMedia(videoOptions)
+    .then(getLocalMediaStream)
+    .catch(catchGetMediaStreamError);
+}
+
+
+function getLocalMediaStream(stream) {
+  videoStream = stream;
+  localPC.addStream(videoStream);
+  video.srcObject = stream;
+  video.play();
+}
+
+function catchGetMediaStreamError(e) {
+  console.log('error with getDisplayMedia: ', e);
+}
 
 
 // function onCandidate(candidate) {
-//   localPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+//   localPC.addIceCandidate(new RTCIceCandidate(candidate));
 // }
 
 function parse(obj) {
@@ -57,33 +103,9 @@ function send(msg) {
   socket.send(JSON.stringify(msg));
 }
 
-// const video = document.getElementById('video');
-// let videoStream;
 
-// const videoOptions = {
-//   video: {
-//     cursor: 'never'
-//   },
-//   audio: {
-//     echoCancellation: true,
-//     noiseSuppression: true,
-//     sampleRate: 44100
-//   }
-// };
 
-// navigator.mediaDevices.getDisplayMedia(videoOptions)
-//   .then(getLocalMediaStream)
-//   .catch(catchGetMediaStreamError);
 
-// function getLocalMediaStream(stream) {
-//   videoStream = stream;
-//   video.srcObject = stream;
-//   video.play();
-// }
-
-// function catchGetMediaStreamError(e) {
-//   console.log('error with getDisplayMedia: ', e);
-// }
 
 
 
@@ -101,11 +123,10 @@ function send(msg) {
 //   }
 // }
 
-// localPeerConnection.addEventListener('iceconnectionstatechange');
+// localPC.addEventListener('iceconnectionstatechange');
 
 
-// localPeerConnection.addStream(videoStream);
-// localPeerConnection.createOffer();
+// localPC.createOffer();
 
 
 
@@ -147,8 +168,8 @@ function send(msg) {
 // }
 
 // function getOtherPeer(peerConnection) {
-//   return (peerConnection === localPeerConnection) ?
-//     remotePeerConnection : localPeerConnection;
+//   return (peerConnection === localPC) ?
+//     remotePeerConnection : localPC;
 // }
 
 // // Logs changes to the connection state.
@@ -160,6 +181,6 @@ function send(msg) {
 // }
 
 // function getPeerName(peerConnection) {
-//   return (peerConnection === localPeerConnection) ?
-//     'localPeerConnection' : 'remotePeerConnection';
+//   return (peerConnection === localPC) ?
+//     'localPC' : 'remotePeerConnection';
 // }

@@ -23,6 +23,10 @@ const connectionHandler = (ws, wsServer) => { // wsServer for broadcasting
           '\nconnections total:', socketConnections.length);
         break;
 
+      case 'sdp':
+        broadcastExcept(ws.userName, message);
+        break;
+
       default: console.log(message);
     }
   });
@@ -30,6 +34,14 @@ const connectionHandler = (ws, wsServer) => { // wsServer for broadcasting
   ws.on('close', () => ws.deleteFromConnections());
 
 };
+
+function broadcastExcept(name, obj) {
+  for (let i = 0; i < socketConnections.length; i++) {
+    if (socketConnections[i].userName !== name) {
+      send(obj, socketConnections[i]);
+    }
+  }
+}
 
 function getConnectionByName(name) {
   for (let i = 0; i < socketConnections.length; i++) {
