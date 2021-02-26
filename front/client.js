@@ -6,6 +6,8 @@ const video = document.getElementById('video');
 const peers = new Room('userName', 'connections');
 var videoStream;
 const userName = Math.random().toString(36).substring(7);
+var micIsOn = false;
+
 
 socket.onopen = e => {
   console.log('Server connection open');
@@ -16,19 +18,17 @@ socket.onmessage = event => {
   const data = parse(event.data);
   switch (data.type) {
 
+    case 'new-potential-peer': sendOffer(data); break;
+
     case 'sdp':
       console.log(data);
+
       if (data.sdp.type === 'offer') {
-        // Set the received ICE description
         const localPC = new RTCPeerConnection();
+        localPC.ontrack = addStreamSource;
         localPC.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        // Formulate answer and send it back to the sender
-        localPC.createAnswer().then(desc => {
-          localPC.setLocalDescription(desc);
-          localPC.userName = data.from;
-          peers.addParticipant(localPC);
-          send({ type: 'sdp', to: data.from, sdp: desc });
-        });
+        sendAnswer(localPC, data);
+
       } else if (data.sdp.type === 'answer') {
         const localPC = peers.getParticipant(data.from);
         const description = new RTCSessionDescription(data.sdp);
@@ -36,21 +36,10 @@ socket.onmessage = event => {
       }
       break;
 
-    case 'new-potential-peer':
-      const localPC = new RTCPeerConnection();
-      localPC.createOffer(desc => localDescCreated(desc, data.peerName)
-        , logError)
-        .then(desc => {
-          localPC.setLocalDescription(desc);
-          localPC.userName = data.peerName;
-          peers.addParticipant(localPC);
-        })
-        .catch(logError);
-      break;
-
     case 'iceCandidate':
-      localPC.addIceCandidate(new RTCIceCandidate(data.candidate)
-        .then().catch());
+      peers.getParticipant(data.from)
+        .addIceCandidate(new RTCIceCandidate(data.candidate)
+          .then().catch());
       break;
 
     default:
@@ -58,7 +47,37 @@ socket.onmessage = event => {
 
 };
 
+function sendOffer(data) {
+  const localPC = new RTCPeerConnection();
+  localPC.createOffer(desc => localDescCreated(desc, data.peerName), logError)
+    .then(desc => {
+      localPC.setLocalDescription(desc);
+      localPC.userName = data.peerName;
+      peers.addParticipant(localPC);
+    })
+    .catch(logError);
+}
+
+function sendAnswer(localPC, data) {
+  localPC.createAnswer().then(desc => {
+    localPC.setLocalDescription(desc);
+    localPC.userName = data.from;
+    peers.addParticipant(localPC);
+    send({ type: 'sdp', to: data.from, sdp: desc });
+  });
+}
+
+function switchMic() {
+  micIsOn === true ? turnMicOn() : turnMicOff();
+}
+
+function turnMicOn() { }
+
+function turnMicOff() { }
+
 function localDescCreated(description, to) {
+  console.log('setting local desc');
+  console.log({ type: 'sdp', to, sdp: description });
   send({ type: 'sdp', to, sdp: description });
 }
 
@@ -87,30 +106,27 @@ function startVideoStream() {
   };
 
   navigator.mediaDevices.getDisplayMedia(videoOptions)
-    .then(getLocalMediaStream)
-    .catch(catchGetMediaStreamError);
+    .then(gotLocalMediaStream)
+    .catch(logError);
 }
 
-
-function getLocalMediaStream(stream) {
+function gotLocalMediaStream(stream) {
   videoStream = stream;
-  // localPC.addStream(videoStream);
   stream.getTracks().forEach(track => {
-    console.dir('track');
-    console.dir(track);
-    localPC.addTrack(track, stream);
+    peers.participants.forEach(p => p.addTrack(track, stream));
   });
   video.srcObject = stream;
   video.play();
+  // Send another offer to all participants in the room
+  // to join the stream
 }
 
-function catchGetMediaStreamError(e) {
-  console.log('error with getDisplayMedia: ', e);
+function addStreamSource(event) {
+  console.log('adding stream source');
+  console.log(event);
+  console.log(event.streams[0]);
+  video.srcObject = event.streams[0];
 }
-
-// function onCandidate(candidate) {
-//   localPC.addIceCandidate(new RTCIceCandidate(candidate));
-// }
 
 function parse(obj) {
   return JSON.parse(obj);

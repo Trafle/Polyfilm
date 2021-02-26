@@ -22,8 +22,6 @@ const connectionHandler = ws => {
 function socketConnectionHandler(ws, message) {
   // Check if there is such a connection already
   ws.userName = message.from;
-  console.log('ws.userName');
-  console.log(ws.userName);
   if (sockets.checkIfPresent(ws.userName)) {
     console.log('connection with this name already present');
     return;
@@ -34,16 +32,11 @@ function socketConnectionHandler(ws, message) {
   // If there is more than one connection in the room, introduce them
   const roomIndex = sockets.getRoomIndexByName(message.room);
   if (sockets.rooms[roomIndex].participantCount() < 2) return;
-  const noPeerParticipants = sockets.rooms[roomIndex]
-    .getAllWithProperty('hasPeerConnection', undefined);
 
-  noPeerParticipants.forEach(p => {
-    const potentialPeers = sockets.getAllInRoomExcept(p.userName);
-    potentialPeers.forEach(pp => {
-      send({ type: 'new-potential-peer', peerName: p.userName }, pp);
-    });
+  // Send potential peer connection SIG to everybody who's already in the room
+  sockets.rooms[roomIndex].getAllExcept(message.from).forEach(socket => {
+    send({ type: 'new-potential-peer', peerName: message.from }, socket);
   });
-
 }
 
 function sdpRequestHandler(wsName, message) {
@@ -51,15 +44,7 @@ function sdpRequestHandler(wsName, message) {
   sockets.getParticipantByID(message.to).hasPeerConnection = true;
   const receiverPeer = sockets.getParticipantByID(message.to);
   if (receiverPeer) send(message, receiverPeer);
-  // if (message.sdp.type === 'offer') {
-  //   const receiverPeer = sockets.getParticipantByID(message.to);
-  //   if (receiverPeer) send(message, receiverPeer);
-  // } else if (message.sdp.type === 'answer') {
-  //   const receiverPeer = sockets.getParticipantByID(message.to);
-  //   if (receiverPeer) send(message, receiverPeer);
-  // }
 }
-
 
 function broadcastInRoomExcept(name, obj) {
   try {
