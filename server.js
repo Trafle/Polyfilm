@@ -2,7 +2,7 @@
 
 const config = require('./configs');
 const logic = require('./back/logic');
-const server = require('http').createServer(handler);
+const server = require('https').createServer(config.options, handler);
 const WebSocket = require('ws');
 const wsServer = new WebSocket.Server({ server });
 
