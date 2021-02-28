@@ -1,16 +1,8 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable no-undef */
 'use strict';
 
-const socket = new WebSocket('ws://localhost:9000');
-const room = 'default';
-const video = document.getElementById('video');
-const peers = new Room('userName', 'connections');
-var videoStream;
-const userName = Math.random().toString(36).substring(7);
-var micIsOn = false;
-
-
-socket.onopen = e => {
-  console.log('Server connection open');
+socket.onopen = () => {
   send({ type: 'connection', room });
 };
 
@@ -18,71 +10,66 @@ socket.onmessage = event => {
   const data = parse(event.data);
   switch (data.type) {
 
-    case 'new-potential-peer': sendOffer(data); break;
+    case 'new-potential-peer': sendOffer(data.peerName); break;
 
     case 'sdp':
-      console.log(data);
 
       if (data.sdp.type === 'offer') {
-        const localPC = new RTCPeerConnection();
-        localPC.ontrack = addStreamSource;
+        console.log('in offer');
+        const localPC = getOrCreatePeer(data.from);
         localPC.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        sendAnswer(localPC, data);
+        sendAnswer(localPC.userName, data);
 
       } else if (data.sdp.type === 'answer') {
-        const localPC = peers.getParticipant(data.from);
+        console.log('in answer');
+        const localPC = getOrCreatePeer(data.from);
         const description = new RTCSessionDescription(data.sdp);
-        localPC.setRemoteDescription(description);
+        console.log('setting answer as the remote description ');
+        console.log(localPC);
+        localPC.setRemoteDescription(description)
+          .then(logSuccess)
+          .catch(logError);
       }
       break;
 
     case 'iceCandidate':
+      console.log('iceCandidate');
+      console.log(data.candidate);
       peers.getParticipant(data.from)
-        .addIceCandidate(new RTCIceCandidate(data.candidate)
-          .then().catch());
+        .addIceCandidate(new RTCIceCandidate(data.candidate));
       break;
 
     default:
+      console.error('bad server request');
   }
 
 };
 
-function sendOffer(data) {
-  const localPC = new RTCPeerConnection();
-  localPC.createOffer(desc => localDescCreated(desc, data.peerName), logError)
-    .then(desc => {
-      localPC.setLocalDescription(desc);
-      localPC.userName = data.peerName;
-      peers.addParticipant(localPC);
-    })
-    .catch(logError);
+function onCandidate(to, ev) {
+  if (ev.candidate)
+    send({ type: 'iceCandidate', candidate: ev.candidate, to });
 }
 
-function sendAnswer(localPC, data) {
-  localPC.createAnswer().then(desc => {
+function sendOffer(peerName, offerOptions) {
+  // if (!offerOptions) offerOptions = undefined;
+  console.log(peerName);
+  const localPC = getOrCreatePeer(peerName);
+  localPC.createOffer(desc => {
+    console.log(desc);
     localPC.setLocalDescription(desc);
-    localPC.userName = data.from;
-    peers.addParticipant(localPC);
+    send({ type: 'sdp', to: peerName, sdp: desc });
+  }, logError,
+    offerOptions);
+}
+
+function sendAnswer(name, data) {
+  const localPC = getOrCreatePeer(name);
+  console.log('creating an answer');
+  localPC.createAnswer().then(desc => {
+    console.log('setting local description before sending answer');
+    localPC.setLocalDescription(desc);
     send({ type: 'sdp', to: data.from, sdp: desc });
   });
-}
-
-function switchMic() {
-  micIsOn === true ? turnMicOn() : turnMicOff();
-}
-
-function turnMicOn() { }
-
-function turnMicOff() { }
-
-function localDescCreated(description, to) {
-  console.log('setting local desc');
-  console.log({ type: 'sdp', to, sdp: description });
-  send({ type: 'sdp', to, sdp: description });
-}
-
-function logError(e) {
-  console.error(`Bad thing: ${e}`);
 }
 
 socket.onclose = event => {
@@ -106,33 +93,45 @@ function startVideoStream() {
   };
 
   navigator.mediaDevices.getDisplayMedia(videoOptions)
-    .then(gotLocalMediaStream)
+    .then(addTracksToPeers)
     .catch(logError);
 }
 
-function gotLocalMediaStream(stream) {
-  videoStream = stream;
+function addTracksToPeers(stream) {
+  console.log('setting the stream');
   stream.getTracks().forEach(track => {
     peers.participants.forEach(p => p.addTrack(track, stream));
   });
   video.srcObject = stream;
-  video.play();
-  // Send another offer to all participants in the room
-  // to join the stream
+  const offerOptions = {
+    mandatory:
+      { OfferToReceiveVideo: true, OfferToReceiveAudio: true }
+  };
+  peers.participants.forEach(p => sendOffer(p.userName, offerOptions));
 }
 
 function addStreamSource(event) {
-  console.log('adding stream source');
-  console.log(event);
-  console.log(event.streams[0]);
-  video.srcObject = event.streams[0];
+  console.log('ADDING STREAM SOURCE:');
+  const mediaStream = new MediaStream([event.track]);
+  video.srcObject = mediaStream;
 }
 
-function parse(obj) {
-  return JSON.parse(obj);
+function getOrCreatePeer(name) {
+  let localPC = peers.getParticipant(name);
+  if (!localPC) {
+    localPC = new RTCPeerConnection(iceServers);
+    localPC.userName = name;
+    localPC.ontrack = addStreamSource;
+    localPC.onicecandidate = ev => onCandidate(name, ev);
+    peers.addParticipant(localPC);
+  }
+  return localPC;
 }
 
-function send(msg) {
-  msg.from = userName;
-  socket.send(JSON.stringify(msg));
+function switchMic() {
+  micIsOn === true ? turnMicOn() : turnMicOff();
 }
+
+function turnMicOn() { }
+
+function turnMicOff() { }

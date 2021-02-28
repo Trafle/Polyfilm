@@ -11,6 +11,7 @@ const connectionHandler = ws => {
 
       case 'connection': socketConnectionHandler(ws, message); break;
       case 'sdp': sdpRequestHandler(ws.userName, message); break;
+      case 'iceCandidate': iceCandidateHandler(ws.userName, message); break;
 
       default: console.log(message);
     }
@@ -18,6 +19,11 @@ const connectionHandler = ws => {
 
   ws.on('close', () => sockets.deleteParticipant(ws.userName));
 };
+
+function iceCandidateHandler(from, message) {
+  const receiverPeer = sockets.getParticipantByID(message.to);
+  if (receiverPeer) send(message, receiverPeer);
+}
 
 function socketConnectionHandler(ws, message) {
   // Check if there is such a connection already
@@ -40,21 +46,9 @@ function socketConnectionHandler(ws, message) {
 }
 
 function sdpRequestHandler(wsName, message) {
-  sockets.getParticipantByID(message.from).hasPeerConnection = true;
-  sockets.getParticipantByID(message.to).hasPeerConnection = true;
   const receiverPeer = sockets.getParticipantByID(message.to);
   if (receiverPeer) send(message, receiverPeer);
 }
-
-function broadcastInRoomExcept(name, obj) {
-  try {
-    sockets.getAllInRoomExcept(name).forEach(c => { send(obj, c); });
-  } catch (e) {
-    console.error('error while trying to broadcast a message in a room\n', e);
-  }
-}
-
-const closeHandler = () => console.log('some connection closed');
 
 function parse(obj) {
   return JSON.parse(obj);
@@ -63,5 +57,7 @@ function parse(obj) {
 function send(msg, webSocket) {
   webSocket.send(JSON.stringify(msg));
 }
+
+const closeHandler = () => console.log('some connection closed');
 
 module.exports = { connectionHandler, closeHandler };

@@ -10,19 +10,19 @@
     Pretty video streaming service
   </h1>
   <br />
-  <div>
-    <video id="video" autoplay="true" controls>
+  <div id="vids">
+    <video id="video1" autoplay controls>
       <source type='video/mp4' ; codecs="H.264" />
     </video>
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-    <script src="House.js"></script>
-    <script src="resources.js"></script>
-    <script src="client.js"></script>
+    <video id="video2" autoplay controls>
+      <source type='video/mp4' ; codecs="H.264" />
+    </video>
   </div>
+  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <script src="./checking_peers.js"></script>
   <div>
     <div class="buttonsDiv">
       <button onclick="startVideoStream()" type="button">Share</button>
-      <button onclick="switchMic()" type="button">Mic</button>
     </div>
   </div>
 </body>

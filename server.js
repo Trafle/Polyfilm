@@ -9,6 +9,7 @@ const wsServer = new WebSocket.Server({ server });
 wsServer.on('connection', logic.connectionHandler);
 wsServer.on('close', logic.closeHandler);
 
+console.log(`starting on: ${config.host}:${config.port}`);
 server.listen(config.port, config.host);
 
 function handler(req, res) {
