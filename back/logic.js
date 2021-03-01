@@ -10,8 +10,8 @@ const connectionHandler = ws => {
     switch (message.type) {
 
       case 'connection': socketConnectionHandler(ws, message); break;
-      case 'sdp': sdpRequestHandler(ws.userName, message); break;
-      case 'iceCandidate': iceCandidateHandler(ws.userName, message); break;
+      case 'sdp':
+      case 'iceCandidate': redirectToUser(ws.userName, message); break;
 
       default: console.log(message);
     }
@@ -19,11 +19,6 @@ const connectionHandler = ws => {
 
   ws.on('close', () => sockets.deleteParticipant(ws.userName));
 };
-
-function iceCandidateHandler(from, message) {
-  const receiverPeer = sockets.getParticipantByID(message.to);
-  if (receiverPeer) send(message, receiverPeer);
-}
 
 function socketConnectionHandler(ws, message) {
   // Check if there is such a connection already
@@ -39,13 +34,14 @@ function socketConnectionHandler(ws, message) {
   const roomIndex = sockets.getRoomIndexByName(message.room);
   if (sockets.rooms[roomIndex].participantCount() < 2) return;
 
-  // Send potential peer connection SIG to everybody who's already in the room
+  // Send potential peer connection signal
+  // to everybody who's already in the room
   sockets.rooms[roomIndex].getAllExcept(message.from).forEach(socket => {
     send({ type: 'new-potential-peer', peerName: message.from }, socket);
   });
 }
 
-function sdpRequestHandler(wsName, message) {
+function redirectToUser(from, message) {
   const receiverPeer = sockets.getParticipantByID(message.to);
   if (receiverPeer) send(message, receiverPeer);
 }

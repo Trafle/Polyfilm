@@ -14,17 +14,17 @@
     <video id="video" autoplay="true" controls>
       <source type='video/mp4' ; codecs="H.264" />
     </video>
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-    <script src="House.js"></script>
-    <script src="resources.js"></script>
-    <script src="client.js"></script>
   </div>
   <div>
     <div class="buttonsDiv">
-      <button onclick="startVideoStream()" type="button">Share</button>
+      <button id="shareBt" onclick="startVideoStream()" type="button">Share</button>
       <button onclick="switchMic()" type="button">Mic</button>
     </div>
   </div>
+  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <script src="House.js"></script>
+  <script src="resources.js"></script>
+  <script src="client.js"></script>
 </body>
 
 </html>

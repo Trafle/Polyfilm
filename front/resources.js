@@ -5,10 +5,12 @@
 const userName = Math.random().toString(36).substring(7);
 const room = 'default';
 const video = document.getElementById('video');
+const button = document.getElementById('shareBt');
 const micIsOn = false;
 const socket = new WebSocket('wss://77.47.218.54:80');
 const peers = new Room('userName', 'connections');
-
+let videoSharing = false;
+let videoStream;
 
 const iceServers = {
   iceServers: [

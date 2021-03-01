@@ -55,11 +55,9 @@ function sendOffer(peerName, offerOptions) {
   console.log(peerName);
   const localPC = getOrCreatePeer(peerName);
   localPC.createOffer(desc => {
-    console.log(desc);
     localPC.setLocalDescription(desc);
     send({ type: 'sdp', to: peerName, sdp: desc });
-  }, logError,
-    offerOptions);
+  }, logError, offerOptions);
 }
 
 function sendAnswer(name, data) {
@@ -92,9 +90,14 @@ function startVideoStream() {
     }
   };
 
-  navigator.mediaDevices.getDisplayMedia(videoOptions)
-    .then(addTracksToPeers)
-    .catch(logError);
+  // If the sharing has already been initiated and is just put on pause
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.enabled = true);
+  } else {
+    navigator.mediaDevices.getDisplayMedia(videoOptions)
+      .then(addTracksToPeers)
+      .catch(logError);
+  }
 }
 
 function addTracksToPeers(stream) {
@@ -102,7 +105,7 @@ function addTracksToPeers(stream) {
   stream.getTracks().forEach(track => {
     peers.participants.forEach(p => p.addTrack(track, stream));
   });
-  video.srcObject = stream;
+  startSharing(stream);
   const offerOptions = {
     mandatory:
       { OfferToReceiveVideo: true, OfferToReceiveAudio: true }
@@ -110,10 +113,28 @@ function addTracksToPeers(stream) {
   peers.participants.forEach(p => sendOffer(p.userName, offerOptions));
 }
 
+function startSharing(stream) {
+  console.log('start');
+  video.srcObject = stream;
+  videoStream = stream;
+  button.innerText = 'Stop sharing';
+  button.onclick = stopSharing;
+  videoSharing = false;
+}
+
+function stopSharing() {
+  console.log('stop');
+  button.innerText = 'Share';
+  button.onclick = startVideoStream;
+  video.srcObject.getTracks().forEach(t => t.enabled = false);
+  videoSharing = true;
+}
+
 function addStreamSource(event) {
   console.log('ADDING STREAM SOURCE:');
   const mediaStream = new MediaStream([event.track]);
   video.srcObject = mediaStream;
+  video.play();
 }
 
 function getOrCreatePeer(name) {
@@ -123,6 +144,11 @@ function getOrCreatePeer(name) {
     localPC.userName = name;
     localPC.ontrack = addStreamSource;
     localPC.onicecandidate = ev => onCandidate(name, ev);
+    if (videoStream) {
+      videoStream.getTracks().forEach(t => {
+        localPC.addTrack(t, videoStream);
+      });
+    }
     peers.addParticipant(localPC);
   }
   return localPC;
