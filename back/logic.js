@@ -17,8 +17,17 @@ const connectionHandler = ws => {
     }
   });
 
-  ws.on('close', () => sockets.deleteParticipant(ws.userName));
+  ws.on('close', () => closeConnectionHandler(ws.userName));
 };
+
+function closeConnectionHandler(userName) {
+  const roomIndex = sockets.getRoomIndexByID(userName);
+  sockets.deleteParticipant(userName);
+  // Send peerDisconnected to all that remain (if any)
+  sockets.rooms[roomIndex].participants.forEach(participant => {
+    send({ type: 'peerDisconnected', peerName: userName }, participant);
+  });
+}
 
 function socketConnectionHandler(ws, message) {
   // Check if there is such a connection already

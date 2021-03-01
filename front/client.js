@@ -15,13 +15,11 @@ socket.onmessage = event => {
     case 'sdp':
 
       if (data.sdp.type === 'offer') {
-        console.log('in offer');
         const localPC = getOrCreatePeer(data.from);
         localPC.setRemoteDescription(new RTCSessionDescription(data.sdp));
         sendAnswer(localPC.userName, data);
 
       } else if (data.sdp.type === 'answer') {
-        console.log('in answer');
         const localPC = getOrCreatePeer(data.from);
         const description = new RTCSessionDescription(data.sdp);
         console.log('setting answer as the remote description ');
@@ -33,17 +31,27 @@ socket.onmessage = event => {
       break;
 
     case 'iceCandidate':
-      console.log('iceCandidate');
-      console.log(data.candidate);
       peers.getParticipant(data.from)
         .addIceCandidate(new RTCIceCandidate(data.candidate));
       break;
+
+    case 'peerDisconnected': peerDisconnectedHandler(data); break;
 
     default:
       console.error('bad server request');
   }
 
 };
+
+function peerDisconnectedHandler(data) {
+  const remoteSDP = peers.getParticipant(data.peerName).remoteDescription.sdp;
+  const sendVideoRegexp = /.*m=video[\s\S]*a=send/;
+  // If the participant was the one streaming
+  if (sendVideoRegexp.test(remoteSDP)) {
+    video.srcObject = undefined;
+  }
+  peers.deleteParticipant(data.peerName);
+}
 
 function onCandidate(to, ev) {
   if (ev.candidate)
@@ -89,19 +97,17 @@ function startVideoStream() {
       sampleRate: 44100
     }
   };
-
   // If the sharing has already been initiated and is just put on pause
   if (video.srcObject) {
     video.srcObject.getTracks().forEach(t => t.enabled = true);
   } else {
     navigator.mediaDevices.getDisplayMedia(videoOptions)
-      .then(addTracksToPeers)
+      .then(sendTracksToPeers)
       .catch(logError);
   }
 }
 
-function addTracksToPeers(stream) {
-  console.log('setting the stream');
+function sendTracksToPeers(stream) {
   stream.getTracks().forEach(track => {
     peers.participants.forEach(p => p.addTrack(track, stream));
   });

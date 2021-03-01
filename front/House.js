@@ -93,6 +93,11 @@ class House {
     this.rooms[roomIndex].deleteParticipant(id);
   }
 
+  getAllInRoomByParticipantName(id) {
+    const roomIndex = this.getRoomIndexByID(id);
+    return this.rooms[roomIndex].participants;
+  }
+
   getAllInRoomExcept(id) {
     const roomIndex = this.getRoomIndexByID(id);
     return this.rooms[roomIndex].getAllExcept(id);
