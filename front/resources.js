@@ -4,13 +4,27 @@
 
 const userName = Math.random().toString(36).substring(7);
 const room = 'default';
-const video = document.getElementById('video');
-const button = document.getElementById('shareBt');
-const micIsOn = false;
 const socket = new WebSocket('wss://77.47.218.54:80');
 const peers = new Room('userName', 'connections');
-let videoSharing = false;
-let videoStream;
+let allMediaStream; // Including the microphone
+let videoStream; // Excluding the microphone
+let micAudioStream;
+
+const video = document.getElementById('video');
+const audio = document.getElementById('microphones');
+const button = document.getElementById('shareBt');
+const micBt = document.getElementById('micBt');
+button.on = false;
+micBt.on = false;
+
+const microphoneOptions = {
+  video: false,
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    sampleRate: 44100
+  }
+};
 
 const iceServers = {
   iceServers: [
@@ -35,6 +49,16 @@ const iceServers = {
       username: '28224511:1379330808'
     }
   ],
+};
+
+const videoOptions = {
+  video: {
+    cursor: 'never',
+    frameRate: {
+      ideal: 60
+    }
+  },
+  audio: true
 };
 
 function logError(e) {

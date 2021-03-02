@@ -11,16 +11,16 @@
   </h1>
   <br />
   <div>
-    <video id="video" autoplay="true" controls>
-      <source type='video/mp4' ; codecs="H.264" />
+    <video id="video" controls autoplay="true">
     </video>
   </div>
   <div>
     <div class="buttonsDiv">
       <button id="shareBt" onclick="startVideoStream()" type="button">Share</button>
-      <button onclick="switchMic()" type="button">Mic</button>
+      <button id="micBt" onclick="turnOnMic()" type="button">Mic (off)</button>
     </div>
   </div>
+  <audio id="microphones"></audio>
   <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
   <script src="House.js"></script>
   <script src="resources.js"></script>

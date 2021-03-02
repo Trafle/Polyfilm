@@ -10,8 +10,8 @@ const connectionHandler = ws => {
     switch (message.type) {
 
       case 'connection': socketConnectionHandler(ws, message); break;
-      case 'sdp':
-      case 'iceCandidate': redirectToUser(ws.userName, message); break;
+      case 'sdp': case 'iceCandidate':
+        redirectToUser(message); break;
 
       default: console.log(message);
     }
@@ -50,7 +50,7 @@ function socketConnectionHandler(ws, message) {
   });
 }
 
-function redirectToUser(from, message) {
+function redirectToUser(message) {
   const receiverPeer = sockets.getParticipantByID(message.to);
   if (receiverPeer) send(message, receiverPeer);
 }
