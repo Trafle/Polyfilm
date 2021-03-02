@@ -12,52 +12,63 @@ socket.onmessage = event => {
   switch (data.type) {
 
     case 'new-potential-peer': newPotentialPeerHandler(data.peerName); break;
-
-    case 'sdp':
-      console.log(data.sdp);
-      if (data.sdp.type === 'offer') {
-        // console.log('offer');
-        // console.log(data);
-        const localPC = getOrCreatePeer(data.from);
-        const d = new RTCSessionDescription(data.sdp);
-        console.log(d);
-        localPC.setRemoteDescription(d);
-        sendAnswer(localPC.userName, data);
-
-      } else if (data.sdp.type === 'answer') {
-        // console.log('answer');
-        // console.log(data);
-        const localPC = getOrCreatePeer(data.from);
-        const description = new RTCSessionDescription(data.sdp);
-        console.log(description);
-        localPC.setRemoteDescription(description);
-        connectPeerToStreams(localPC.userName);
-      }
-      break;
-
-    case 'iceCandidate':
-      console.log('ice');
-      peers.getParticipant(data.from)
-        .addIceCandidate(new RTCIceCandidate(data.candidate));
-      break;
-
+    case 'iceCandidate': iceCandidateHandler(data); break;
+    case 'sdp': sdpRequestHandler(data); break;
     case 'peerDisconnected': peerDisconnectedHandler(data); break;
+    case 'stoppedSharingVideo': stoppedSharingVideoHandler(); break;
 
-    default:
-      console.error('bad server request');
+    default: console.error('bad server request');
   }
 };
 
-function turnOnMic() {
-  console.log('MIC SHARING HERE');
+function newPotentialPeerHandler(name) { sendOffer(name); }
 
+function iceCandidateHandler(data) {
+  peers.getParticipant(data.from)
+    .addIceCandidate(new RTCIceCandidate(data.candidate));
+}
+
+function sdpRequestHandler(data) {
+  if (data.sdp.type === 'offer') sdpOfferHandler(data);
+  else if (data.sdp.type === 'answer') sdpAnswerHandler(data);
+}
+
+function peerDisconnectedHandler(data) {
+  const remoteSDP = peers.getParticipant(data.peerName).remoteDescription.sdp;
+  const sendVideoRegexp = /.*m=video[\s\S]*a=send/;
+  // If the participant was the one streaming
+  if (sendVideoRegexp.test(remoteSDP)) clearVideoSource();
+  peers.deleteParticipant(data.peerName);
+}
+
+function stoppedSharingVideoHandler() {
+  clearVideoSource();
+}
+
+
+function sdpOfferHandler(data) {
+  const localPC = getOrCreatePeer(data.from);
+  const d = new RTCSessionDescription(data.sdp);
+  console.log(d);
+  localPC.setRemoteDescription(d);
+  sendAnswer(localPC.userName, data);
+}
+
+function sdpAnswerHandler(data) {
+  const localPC = getOrCreatePeer(data.from);
+  const description = new RTCSessionDescription(data.sdp);
+  console.log(description);
+  localPC.setRemoteDescription(description);
+  connectPeerToStreams(localPC.userName);
+}
+
+function turnOnMic() {
   if (micAudioStream) {
     micAudioStream.getTracks()[0].enabled = true;
     switchMicButtonView();
   } else {
     getMicrophoneStream(switchMicButtonView);
   }
-
 }
 
 function getMicrophoneStream(callback) {
@@ -86,20 +97,10 @@ function turnOffMic() {
   switchMicButtonView();
 }
 
-function newPotentialPeerHandler(name) {
-  sendOffer(name);
-}
-
-function peerDisconnectedHandler(data) {
-  const remoteSDP = peers.getParticipant(data.peerName).remoteDescription.sdp;
-  const sendVideoRegexp = /.*m=video[\s\S]*a=send/;
-  // If the participant was the one streaming
-  if (sendVideoRegexp.test(remoteSDP)) clearVideoSource();
-  peers.deleteParticipant(data.peerName);
-}
-
 function clearVideoSource() {
+  console.log('onremovetrack FIRED');
   video.srcObject = undefined;
+  shareBt.disabled = false;
 }
 
 function onCandidate(to, ev) {
@@ -182,16 +183,27 @@ function addStreamSource(event) {
   } else if (sdp.indexOf('screensharing') !== -1) {
     videoStream = null;
     video.srcObject = new MediaStream([event.track]);
+    shareBt.disabled = true;
   }
-  video.play();
   audio.play();
+  video.play();
 }
 
 function stopSharing() {
-  video.srcObject.getTracks().forEach(t => {
-    t.enabled = false;
+  peers.participants.forEach(peer => {
+    peer.getSenders().forEach(sender => {
+      if (!sender.track) return;
+      videoStream.getTracks().forEach(track => {
+        if (sender.track.id === track.id) peer.removeTrack(sender);
+      });
+    });
   });
+  videoStream = null;
+  clearVideoSource();
   switchShareButton();
+  peers.participants.forEach(peer => send(
+    { to: peer.userName, type: 'stoppedSharingVideo' }
+  ));
 }
 
 function getOrCreatePeer(name) {
@@ -208,6 +220,7 @@ function getOrCreatePeer(name) {
 
 function connectPeerToStreams(name) {
   const localPC = peers.getParticipant(name);
+  if (!localPC) return;
   if (localPC.connected) return;
   if (micAudioStream) {
     localPC.addTrack(micAudioStream.getTracks()[0], micAudioStream);

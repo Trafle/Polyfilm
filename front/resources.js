@@ -11,10 +11,12 @@ let micAudioStream;
 
 const video = document.getElementById('video');
 const audio = document.getElementById('microphones');
-const button = document.getElementById('shareBt');
+const shareBt = document.getElementById('shareBt');
 const micBt = document.getElementById('micBt');
-button.on = false;
+const muteBt = document.getElementById('muteBt');
+shareBt.on = false;
 micBt.on = false;
+muteBt.on = true;
 
 const microphoneOptions = {
   video: false,
@@ -79,22 +81,15 @@ function switchMicButtonView() {
 }
 
 function switchShareButton() {
-  if (button.on) {
-    button.innerText = 'Share';
-    button.onclick = startVideoStream;
-    button.on = false;
+  if (shareBt.on) {
+    shareBt.innerText = 'Share';
+    shareBt.onclick = startVideoStream;
+    shareBt.on = false;
   } else {
-    button.innerText = 'Stop sharing';
-    button.onclick = stopSharing;
-    button.on = true;
+    shareBt.innerText = 'Stop sharing';
+    shareBt.onclick = stopSharing;
+    shareBt.on = true;
   }
-}
-
-function stopSharing() {
-  video.srcObject.getTracks().forEach(t => {
-    if (t.myOwnTrack) t.enabled = false;
-  });
-  switchShareButton();
 }
 
 function addTrackOrInitObject(element, track, stream) {
@@ -102,6 +97,30 @@ function addTrackOrInitObject(element, track, stream) {
     element.srcObject.addTrack(track, stream);
   } else {
     element.srcObject = new MediaStream([track]);
+  }
+}
+
+function unmute() {
+  audio.play();
+  video.play();
+  switchMuteButton();
+}
+
+function mute() {
+  audio.pause();
+  video.pause();
+  switchMuteButton();
+}
+
+function switchMuteButton() {
+  if (muteBt.on) {
+    muteBt.innerText = 'Mute';
+    muteBt.onclick = mute;
+    muteBt.on = false;
+  } else {
+    muteBt.innerText = 'Unmute';
+    muteBt.onclick = unmute;
+    muteBt.on = true;
   }
 }
 

@@ -10,7 +10,7 @@ const connectionHandler = ws => {
     switch (message.type) {
 
       case 'connection': socketConnectionHandler(ws, message); break;
-      case 'sdp': case 'iceCandidate':
+      case 'sdp': case 'iceCandidate': case 'stoppedSharingVideo':
         redirectToUser(message); break;
 
       default: console.log(message);
