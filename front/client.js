@@ -31,10 +31,12 @@ socket.onmessage = event => {
         const description = new RTCSessionDescription(data.sdp);
         console.log(description);
         localPC.setRemoteDescription(description);
+        connectPeerToStreams(localPC.userName);
       }
       break;
 
     case 'iceCandidate':
+      console.log('ice');
       peers.getParticipant(data.from)
         .addIceCandidate(new RTCIceCandidate(data.candidate));
       break;
@@ -56,39 +58,32 @@ function turnOnMic() {
     getMicrophoneStream(switchMicButtonView);
   }
 
-  function getMicrophoneStream(callback) {
-    const offerOptions = { mandatory: { OfferToReceiveAudio: true } };
-    navigator.mediaDevices.getUserMedia(microphoneOptions)
-      .then(micStream => {
-        console.log('s');
-        micAudioStream = micStream;
-        const micTrack = micStream.getTracks()[0];
-        micTrack.myOwnTrack = true;
-        peers.participants.forEach(p => {
-          p.addTrack(micTrack, micStream);
-          sendOffer(p.userName, offerOptions, 'microphone');
-        });
-        callback();
-      })
-      .catch(logError);
+}
+
+function getMicrophoneStream(callback) {
+  navigator.mediaDevices.getUserMedia(microphoneOptions)
+    .then(micStream => {
+      micAudioStream = micStream;
+      const micTrack = micStream.getTracks()[0];
+      peers.participants.forEach(p => {
+        p.addTrack(micTrack, micStream);
+        sendOffer(p.userName, audioOfferOption, 'microphonetrack');
+      });
+      callback();
+    })
+    .catch(logError);
+}
+
+function replacePartOfString(string, substr) {
+  for (let i = 0; i < substr.length; i++) {
+    string[i] = substr[i];
   }
+  return string;
 }
 
 function turnOffMic() {
   micAudioStream.getTracks()[0].enabled = false;
   switchMicButtonView();
-}
-
-function switchMicButtonView() {
-  if (micBt.on) {
-    micBt.innerText = 'Mic (off)';
-    micBt.onclick = turnOnMic;
-    micBt.on = false;
-  } else {
-    micBt.innerText = 'Mic (on)';
-    micBt.onclick = turnOffMic;
-    micBt.on = true;
-  }
 }
 
 function newPotentialPeerHandler(name) {
@@ -112,14 +107,25 @@ function onCandidate(to, ev) {
     send({ type: 'iceCandidate', candidate: ev.candidate, to });
 }
 
-function sendOffer(peerName, offerOptions, msid) {
+function sendOffer(peerName, offerOptions, customInfo) {
   const localPC = getOrCreatePeer(peerName);
   localPC.createOffer(desc => {
+    if (customInfo) desc.sdp = addCustomLabelToSdp(desc.sdp, customInfo);
     localPC.setLocalDescription(desc);
-    console.log(msid);
-    if (msid) desc.msid = msid;
+    console.log(desc);
     send({ type: 'sdp', to: peerName, sdp: desc });
   }, logError, offerOptions);
+}
+
+function addCustomLabelToSdp(sdp, streamType) {
+  const lines = sdp.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    line = line.replace(/(a=extmap:[0-9]+) [^ \n]+/gi,
+      '$1 https://www.kevinmoreland.com/webrtc/' + streamType);
+    lines[i] = line;
+  }
+  return lines.join('\n');
 }
 
 function sendAnswer(name, data) {
@@ -142,31 +148,14 @@ function startVideoStream() {
   // If the sharing has already been initiated and is just put on pause
   if (video.srcObject) {
     video.srcObject.getTracks().forEach(t => {
-      if (t.myOwnTrack) t.enabled = true;
+      t.enabled = true;
     });
-    switchShareButton();
-
-    // const tracksInVidElem = video.srcObject.getTracks() || null;
-    // let videoTrack;
-    // tracksInVidElem.forEach(track => {
-    //   if (track.kind === 'video') videoTrack = track;
-    // });
-    // if (videoTrack) {
-    //   if (videoTrack.myOwnVideo) {
-    //     videoTrack.enabled = true;
-    //     switchShareButton(false);
-    //     return;
-    //   } else {
-    //     // The case for a client watching the video
-    //     return;
-    //   }
-    // }
   } else {
     navigator.mediaDevices.getDisplayMedia(videoOptions)
       .then(sendTracksToPeers)
       .catch(logError);
-    switchShareButton();
   }
+  switchShareButton();
 }
 
 function sendTracksToPeers(stream) {
@@ -174,66 +163,35 @@ function sendTracksToPeers(stream) {
     peers.participants.forEach(p => p.addTrack(track, stream));
   });
   setVideoElementSource(stream);
-  const offerOptions = {
-    mandatory:
-      { OfferToReceiveVideo: true, OfferToReceiveAudio: true }
-  };
-  peers.participants.forEach(p => sendOffer(p.userName, offerOptions));
+  peers.participants.forEach(
+    p => sendOffer(p.userName, videoOfferOption, 'screensharing'));
 }
 
 function setVideoElementSource(stream) {
   videoStream = stream;
-  const videoTracks = videoStream.getTracks();
-  videoTracks.forEach(track => {
-    track.myOwnTrack = true;
-    if (track.kind === 'video') track.myOwnVideo = true;
-    else if (track.kind === 'audio') track.myOwnAudio = true;
+  stream.getTracks().forEach(track => {
+    addTrackOrInitObject(video, track, stream);
   });
-  // Add tracks to the existing stream object or create a new one
-  if (video.srcObject) {
-    video.srcObject.addTrack(track, videoStream);
-  } else {
-    video.srcObject = videoStream;
-  }
-}
-
-function switchShareButton() {
-  if (button.on) {
-    button.innerText = 'Share';
-    button.onclick = startVideoStream;
-    button.on = false;
-  } else {
-    button.innerText = 'Stop sharing';
-    button.onclick = stopSharing;
-    button.on = true;
-  }
-}
-
-// if (micBt.on) {
-//   micBt.innerText = 'Mic (off)';
-//   micBt.onclick = turnOnMic;
-//   micBt.on = false;
-// } else {
-//   micBt.innerText = 'Mic (on)';
-//   micBt.onclick = turnOffMic;
-//   micBt.on = true;
-
-function stopSharing() {
-  video.srcObject.getTracks().forEach(t => {
-    if (t.myOwnTrack) t.enabled = false;
-  });
-  switchShareButton();
 }
 
 function addStreamSource(event) {
   console.log('ADDING STREAM SOURCE');
-  console.log(event);
-  if (video.srcObject) {
-    video.srcObject.addTrack(event.track);
-  } else {
+  const sdp = event.target.remoteDescription.sdp.toString();
+  if (sdp.indexOf('microphonetrack') !== -1) {
+    addTrackOrInitObject(audio, event.track, event.streams[0]);
+  } else if (sdp.indexOf('screensharing') !== -1) {
+    videoStream = null;
     video.srcObject = new MediaStream([event.track]);
   }
   video.play();
+  audio.play();
+}
+
+function stopSharing() {
+  video.srcObject.getTracks().forEach(t => {
+    t.enabled = false;
+  });
+  switchShareButton();
 }
 
 function getOrCreatePeer(name) {
@@ -243,16 +201,28 @@ function getOrCreatePeer(name) {
     localPC.userName = name;
     localPC.ontrack = addStreamSource;
     localPC.onicecandidate = ev => onCandidate(name, ev);
-    if (micAudioStream)
-      localPC.addTrack(micAudioStream.getTracks()[0], micAudioStream);
-    if (videoStream)
-      videoStream.getTracks().forEach(track => {
-        console.log('track being added:', track);
-        localPC.addTrack(track, videoStream);
-      });
     peers.addParticipant(localPC);
   }
   return localPC;
+}
+
+function connectPeerToStreams(name) {
+  const localPC = peers.getParticipant(name);
+  if (localPC.connected) return;
+  if (micAudioStream) {
+    localPC.addTrack(micAudioStream.getTracks()[0], micAudioStream);
+    sendOffer(name, audioOfferOption, 'microphonetrack');
+  }
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => {
+      console.log('track being added:', track);
+      localPC.addTrack(track, videoStream);
+      console.log('length of videoStream.getTracks()');
+      console.log(videoStream.getTracks().length);
+    });
+    sendOffer(name, videoOfferOption, 'screensharing');
+  }
+  localPC.connected = true;
 }
 
 // BLOCK CLIENTS' BUTTONS IF SOMEONE IS ALREADY SHARING

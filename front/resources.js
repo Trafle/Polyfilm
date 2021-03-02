@@ -6,8 +6,7 @@ const userName = Math.random().toString(36).substring(7);
 const room = 'default';
 const socket = new WebSocket('wss://77.47.218.54:80');
 const peers = new Room('userName', 'connections');
-let allMediaStream; // Including the microphone
-let videoStream; // Excluding the microphone
+let videoStream; // Variable only true when sharing video
 let micAudioStream;
 
 const video = document.getElementById('video');
@@ -60,6 +59,51 @@ const videoOptions = {
   },
   audio: true
 };
+
+const audioOfferOption = { mandatory: { OfferToReceiveAudio: true } };
+const videoOfferOption = {
+  mandatory:
+    { OfferToReceiveVideo: true, OfferToReceiveAudio: true }
+};
+
+function switchMicButtonView() {
+  if (micBt.on) {
+    micBt.innerText = 'Mic (off)';
+    micBt.onclick = turnOnMic;
+    micBt.on = false;
+  } else {
+    micBt.innerText = 'Mic (on)';
+    micBt.onclick = turnOffMic;
+    micBt.on = true;
+  }
+}
+
+function switchShareButton() {
+  if (button.on) {
+    button.innerText = 'Share';
+    button.onclick = startVideoStream;
+    button.on = false;
+  } else {
+    button.innerText = 'Stop sharing';
+    button.onclick = stopSharing;
+    button.on = true;
+  }
+}
+
+function stopSharing() {
+  video.srcObject.getTracks().forEach(t => {
+    if (t.myOwnTrack) t.enabled = false;
+  });
+  switchShareButton();
+}
+
+function addTrackOrInitObject(element, track, stream) {
+  if (element.srcObject) {
+    element.srcObject.addTrack(track, stream);
+  } else {
+    element.srcObject = new MediaStream([track]);
+  }
+}
 
 function logError(e) {
   console.error(`Bad thing: ${e}`);
