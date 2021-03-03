@@ -56,7 +56,8 @@ const videoOptions = {
   video: {
     cursor: 'never',
     frameRate: {
-      ideal: 60
+      ideal: 30,
+      max: 60
     }
   },
   audio: true

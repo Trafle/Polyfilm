@@ -98,7 +98,6 @@ function turnOffMic() {
 }
 
 function clearVideoSource() {
-  console.log('onremovetrack FIRED');
   video.srcObject = undefined;
   shareBt.disabled = false;
 }
@@ -113,7 +112,6 @@ function sendOffer(peerName, offerOptions, customInfo) {
   localPC.createOffer(desc => {
     if (customInfo) desc.sdp = addCustomLabelToSdp(desc.sdp, customInfo);
     localPC.setLocalDescription(desc);
-    console.log(desc);
     send({ type: 'sdp', to: peerName, sdp: desc });
   }, logError, offerOptions);
 }
@@ -146,17 +144,9 @@ socket.onerror = error => {
 };
 
 function startVideoStream() {
-  // If the sharing has already been initiated and is just put on pause
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(t => {
-      t.enabled = true;
-    });
-  } else {
-    navigator.mediaDevices.getDisplayMedia(videoOptions)
-      .then(sendTracksToPeers)
-      .catch(logError);
-  }
-  switchShareButton();
+  navigator.mediaDevices.getDisplayMedia(videoOptions)
+    .then(sendTracksToPeers)
+    .catch(logError);
 }
 
 function sendTracksToPeers(stream) {
@@ -166,6 +156,7 @@ function sendTracksToPeers(stream) {
   setVideoElementSource(stream);
   peers.participants.forEach(
     p => sendOffer(p.userName, videoOfferOption, 'screensharing'));
+  switchShareButton();
 }
 
 function setVideoElementSource(stream) {
@@ -182,7 +173,7 @@ function addStreamSource(event) {
     addTrackOrInitObject(audio, event.track, event.streams[0]);
   } else if (sdp.indexOf('screensharing') !== -1) {
     videoStream = null;
-    video.srcObject = new MediaStream([event.track]);
+    addTrackOrInitObject(video, event.track, event.streams[0]);
     shareBt.disabled = true;
   }
   audio.play();
@@ -190,10 +181,12 @@ function addStreamSource(event) {
 }
 
 function stopSharing() {
+  if (!videoStream) { switchShareButton(); return; }
   peers.participants.forEach(peer => {
     peer.getSenders().forEach(sender => {
       if (!sender.track) return;
       videoStream.getTracks().forEach(track => {
+        if (!track) return;
         if (sender.track.id === track.id) peer.removeTrack(sender);
       });
     });
@@ -238,4 +231,5 @@ function connectPeerToStreams(name) {
   localPC.connected = true;
 }
 
-// BLOCK CLIENTS' BUTTONS IF SOMEONE IS ALREADY SHARING
+// turn off the sharer sound and make the sound
+// button disappear and appear back when they stop sharing
